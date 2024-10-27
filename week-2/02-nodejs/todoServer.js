@@ -40,10 +40,114 @@
   Testing the server - run `npm run test-todoServer` command in terminal
  */
   const express = require('express');
+  const fs = require('fs').promises;
+  const path = require('path');
   const bodyParser = require('body-parser');
+  const { v4: uuidv4 } = require('uuid');
   
   const app = express();
-  
+
   app.use(bodyParser.json());
+
+  const filepath = path.resolve('todos.json')
+
+  async function readTodos() {
+    try{
+      const data =  await fs.readFile(path.resolve('todos.json'),'utf-8');
+      return JSON.parse(data)
+    } catch(err) {
+      return [];
+    }
+  }
+
+  async function writeTodos(todos) {
+    await fs.writeFile(filepath,JSON.stringify(todos,null,2));
+  }
+
+  app.get('/todos',async (req,res,next)=> {
+    try{
+      const todos = await readTodos();
+      res.status(200).send(todos);
+    } catch(err) {
+      next(err);
+    }
+  })
+
+  app.get('/todos/:id',async (req,res,next)=> {
+    try{
+      const todos = await readTodos();
+      const todo = todos.find((todo)=> todo.id === req.params.id);
+      if(!todo) return res.sendStatus(404);
+      res.status(200).send(todo);
+    } catch(err) {
+      next(err);
+    }
+  })
+
+  app.post('/todos',async (req,res,next)=> {
+    try{
+      const {title, description} = req.body;
+      if(title === undefined || description === undefined ) return res.sendStatus(400);
+      const id = uuidv4();
+      const todos = await readTodos();
+      todos.push({
+        id, title, completed:false, description
+      });
+      await writeTodos(todos);
+      res.status(201).json({id});
+
+    } catch(err) {
+      next(err);
+    }
+  })
+
+  app.put('/todos/:id', async(req, res,next) => {
+    try{
+      const todos = await readTodos()
+      const todo = todos.find((todo)=> todo.id === req.params.id);
+      if(!todo) return res.sendStatus(404);
+      const {title, description, completed} = req.body;
+      if(title != undefined) {
+        todo.title = title
+      }
+      if(description != undefined) {
+        todo.description = description
+      }
+      if(completed != undefined) {
+        todo.completed =completed
+      }
+      await writeTodos(todos)
+      res.sendStatus(200)
+
+    } catch(err) {
+      next(err)
+    }
+  })
+
+  app.delete('/todos/:id', async(req, res, next) => {
+    try{
+      const todos = await readTodos();
+      const todo = todos.findIndex((todo)=> todo.id === req.params.id);
+      if(todo===-1) return res.sendStatus(404);
+      todos.splice(todo,1);
+      await writeTodos(todos);
+      res.sendStatus(200);
+    } catch(err) {
+      next(err);
+    }
+  })
+
+  app.use((err, req, res, next)=> {
+    if(err) {
+      console.error(err);
+      res.send(500).json({result: 'Something went wrong'})
+    }
+  })
+
+  app.use((req,res)=> {
+    res.sendStatus(404)
+  })
   
+
+
   module.exports = app;

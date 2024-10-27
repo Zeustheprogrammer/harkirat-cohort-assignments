@@ -6,7 +6,9 @@
 */
 
 function findLargestElement(numbers) {
-    
+    if(!numbers || numbers.length == 0) return;
+    const res = numbers.reduce((acc, num)=> acc<num? num:acc)
+    return res;
 }
 
 module.exports = findLargestElement;
